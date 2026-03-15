@@ -1,14 +1,21 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import hole from "../assets/hole.png";
 import empty_tile from "../assets/empty_tile.png";
 import fox_back from "../assets/fox_back.png";
 import fox_front from "../assets/fox_front.png";
 import white_rabbit from "../assets/white_rabbit.png";
+import brown_rabbit from "../assets/brown_rabbit.png";
+import grey_rabbit from "../assets/grey_rabbit.png";
 import mushroom from "../assets/mushroom.png";
+import starter from "../levels/starter.json";
+import junior from "../levels/junior.json";
+import expert from "../levels/expert.json";
+
+const levels = [...starter, ...junior, ...expert];
 
 // --- Types ---
 type PieceType = "rabbit" | "fox" | "mushroom";
-type RabbitColor = "white" | "brown" | "gray";
+type RabbitColor = "white" | "brown" | "grey";
 type Facing = "up" | "down" | "left" | "right";
 type Coordinate = { x: number; y: number };
 
@@ -31,7 +38,47 @@ const BOARD_SIZE = 5;
 const GREEN_BG = "rgb(0, 157, 71)";
 
 export default function JumpInGame() {
+  const [boardCode, SetBoardCode] = useState<undefined | string>();
   const [moveCount, setMoveCount] = useState(0);
+  const [creatorMode, setCreatorMode] = useState<boolean>(false);
+  const [levelSelectorMode, setLevelSelectorMode] = useState<boolean>(false);
+  const [creatorIndex, setCreatorIndex] = useState<number>(0);
+  const creatorChoices: GamePiece[] = [
+    // Rabbits
+    { type: "rabbit", color: "white" },
+    { type: "rabbit", color: "brown" },
+    { type: "rabbit", color: "grey" },
+
+    // Obstacles
+    { type: "mushroom" },
+
+    // Fox Fronts (Leading direction determines rotation)
+    { type: "fox", front: true, facing: "up" },
+    { type: "fox", front: true, facing: "down" },
+    { type: "fox", front: true, facing: "left" },
+    { type: "fox", front: true, facing: "right" },
+  ];
+
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (event.ctrlKey) return;
+      if (event.key === "c") {
+        setCreatorMode((prev) => !prev);
+      } else if (event.key === "r") {
+        console.log(creatorIndex);
+        setCreatorIndex((prev) => {
+          prev += 1;
+          prev %= creatorChoices.length;
+          return prev;
+        });
+      } else if (event.key == "l") {
+        setLevelSelectorMode((prev) => !prev);
+      }
+    };
+
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   const [board, setBoard] = useState<Cell[][]>(() => {
     const holePositions: Coordinate[] = [
@@ -47,14 +94,47 @@ export default function JumpInGame() {
         piece: null,
       })),
     );
-    // // Initial Level Setup
-    // initialBoard[0][1].piece = { type: "rabbit", color: "white" };
-    // initialBoard[1][1].piece = { type: "mushroom" };
-    // initialBoard[3][1].piece = { type: "fox", facing: "down", front: true };
-    // initialBoard[2][1].piece = { type: "fox", facing: "down", front: false };
-    console.log(initialBoard);
     return initialBoard;
   });
+
+  const encode_board = (b: Cell[][]): string => {
+    let code = "";
+
+    for (let y = 0; y < BOARD_SIZE; y++) {
+      for (let x = 0; x < BOARD_SIZE; x++) {
+        const piece = b[y][x].piece;
+
+        if (!piece) {
+          code += ".";
+          continue;
+        }
+
+        switch (piece.type) {
+          case "rabbit":
+            if (piece.color === "white") code += "w";
+            else if (piece.color === "brown") code += "b";
+            else if (piece.color === "grey") code += "g";
+            break;
+          case "mushroom":
+            code += "m";
+            break;
+          case "fox":
+            if (piece.front) {
+              if (piece.facing === "up") code += "u";
+              else if (piece.facing === "down") code += "d";
+              else if (piece.facing === "left") code += "l";
+              else if (piece.facing === "right") code += "r";
+            } else {
+              code += ".";
+            }
+            break;
+          default:
+            code += ".";
+        }
+      }
+    }
+    return code;
+  };
 
   const decode_board = (code: string) => {
     if (code.length != BOARD_SIZE * BOARD_SIZE) {
@@ -85,7 +165,7 @@ export default function JumpInGame() {
           newBoard[row][col].piece = { type: "rabbit", color: "brown" };
           break;
         case "g":
-          newBoard[row][col].piece = { type: "rabbit", color: "gray" };
+          newBoard[row][col].piece = { type: "rabbit", color: "grey" };
           break;
         case "m":
           newBoard[row][col].piece = { type: "mushroom" };
@@ -143,6 +223,15 @@ export default function JumpInGame() {
     }
     return newBoard;
   };
+
+  useEffect(() => {
+    if (!boardCode) return;
+    const newBoard = decode_board(boardCode);
+    if (newBoard) {
+      setBoard(newBoard);
+      setMoveCount(() => 0);
+    }
+  }, [boardCode]);
 
   // State to track dragging
   const [dragStart, setDragStart] = useState<{ r: number; c: number } | null>(
@@ -305,7 +394,14 @@ export default function JumpInGame() {
     return validMoves;
   };
 
-  const Board = (b: Cell[][], interactive: boolean = true) => {
+  const Board = (
+    b: Cell[][],
+    interactive: boolean = true,
+    creator: boolean = false,
+  ) => {
+    if (creator) {
+      interactive = false;
+    }
     // Logic to determine if a cell is a hole or empty
     const getTileType = (row: number, col: number) => {
       const isCorner = (row === 0 || row === 4) && (col === 0 || col === 4);
@@ -328,13 +424,22 @@ export default function JumpInGame() {
       }
     };
 
-    const getPieceImage = (piece: any) => {
+    const getPieceImage = (piece: GamePiece) => {
       if (!piece) return undefined;
 
       // Logic to select the correct image asset based on piece type
       switch (piece.type) {
         case "rabbit":
-          return white_rabbit; // or your rabbit image variable
+          switch (piece.color) {
+            case "white":
+              return white_rabbit;
+            case "brown":
+              return brown_rabbit;
+            case "grey":
+              return grey_rabbit;
+            default:
+              return undefined;
+          }
         case "mushroom":
           return mushroom;
         case "fox":
@@ -351,10 +456,28 @@ export default function JumpInGame() {
           position: "relative",
           width: "fit-content",
           margin: "30px auto",
-          padding: interactive ? "0 30px 0 30px" : "0px",
+          padding: interactive || creator ? "30px" : "0px",
           backgroundColor: GREEN_BG,
         }}
       >
+        {creator && (
+          <div
+            style={{
+              position: "absolute",
+              top: "-5px",
+              left: "-5px",
+              color: "white",
+              padding: "5px 15px",
+              borderRadius: "20px",
+              fontFamily: "sans-serif",
+              fontWeight: "bold",
+              fontSize: "14px",
+              //   pointerEvents: "none",
+            }}
+          >
+            Board Code: {encode_board(b)}
+          </div>
+        )}
         {/* Move Counter UI */}
         {interactive && (
           <div
@@ -378,15 +501,18 @@ export default function JumpInGame() {
         <div
           style={{
             display: "grid",
+            height: "100%",
+            width: "100%",
             gridTemplateColumns: `repeat(${BOARD_SIZE}, 50px)`,
             //   backgroundColor: GREEN_BG, // Board background
             borderRadius: "16px",
-            width: "fit-content",
+            // width: "fit-content",
             // borderColor: "rgb(255, 255, 255)",
             padding: "10px",
             outline: "3px solid rgb(255, 255, 255)",
-            marginBottom: "15px",
-            marginTop: "30px",
+            marginBottom: interactive ? "15px" : "0px",
+            boxSizing: "border-box",
+            // marginTop: "30px",
           }}
         >
           {b.map((rowData, row) =>
@@ -397,18 +523,91 @@ export default function JumpInGame() {
                 rabbit_valid_moves(dragStart.r, dragStart.c).some(
                   (m) => m.y === row && m.x === col,
                 );
+
               return (
                 <div
                   key={`${row}-${col}`}
-                  onMouseDown={() =>
-                    interactive && handleMouseDown(row, col, cell.piece)
-                  }
+                  onMouseDown={() => {
+                    interactive && handleMouseDown(row, col, cell.piece);
+                  }}
                   onMouseEnter={() =>
                     interactive && dragStart && handleMouseUp(row, col)
                   }
                   onMouseUp={() =>
                     interactive && dragStart && handleMouseUp(row, col, true)
                   }
+                  onContextMenu={(e) => {
+                    if (!creator) return;
+                    e.preventDefault();
+                    const newBoard = [...board.map((r) => [...r])];
+                    newBoard[row][col].piece = null;
+                    setBoard(newBoard);
+                  }}
+                  onClick={() => {
+                    if (!creator) return;
+                    const newBoard = [...board.map((r) => [...r])];
+                    const piece = creatorChoices[creatorIndex];
+                    if (piece.type == "fox") {
+                      switch (piece.facing) {
+                        case "up": // Up
+                          newBoard[row][col].piece = {
+                            type: "fox",
+                            front: true,
+                            facing: "up",
+                          };
+                          if (row + 1 < BOARD_SIZE)
+                            newBoard[row + 1][col].piece = {
+                              type: "fox",
+                              front: false,
+                              facing: "up",
+                            };
+
+                          break;
+                        case "down": // Down
+                          newBoard[row][col].piece = {
+                            type: "fox",
+                            front: true,
+                            facing: "down",
+                          };
+                          if (row - 1 >= 0)
+                            newBoard[row - 1][col].piece = {
+                              type: "fox",
+                              front: false,
+                              facing: "down",
+                            };
+                          break;
+                        case "left": // Left
+                          newBoard[row][col].piece = {
+                            type: "fox",
+                            front: true,
+                            facing: "left",
+                          };
+                          if (col + 1 < BOARD_SIZE)
+                            newBoard[row][col + 1].piece = {
+                              type: "fox",
+                              front: false,
+                              facing: "left",
+                            };
+                          break;
+                        case "right": // Right
+                          newBoard[row][col].piece = {
+                            type: "fox",
+                            front: true,
+                            facing: "right",
+                          };
+                          if (col - 1 >= 0)
+                            newBoard[row][col - 1].piece = {
+                              type: "fox",
+                              front: false,
+                              facing: "right",
+                            };
+                          break;
+                      }
+                    } else {
+                      newBoard[row][col].piece = piece;
+                    }
+                    setBoard(newBoard);
+                  }}
                   //   onClick={() => {
                   //     if (cell.piece?.type === "fox") {
 
@@ -487,9 +686,12 @@ export default function JumpInGame() {
             }}
             onClick={() => {
               console.log("resetting board");
-              const newBoard = decode_board(" mm    r     w          d");
-              if (newBoard) setBoard(newBoard);
-              if (newBoard) setMoveCount(() => 0);
+              if (boardCode) {
+                const newBoard = decode_board(boardCode);
+                if (newBoard) setBoard(newBoard);
+                if (newBoard) setMoveCount(() => 0);
+              }
+
               // resetBoard(); // Call your reset logic here
             }}
             onMouseOver={(e) =>
@@ -504,15 +706,170 @@ export default function JumpInGame() {
             Restart
           </div>
         )}
+
+        {creator && (
+          <div
+            style={{
+              width: "50px",
+              height: "50px",
+              margin: "0 auto",
+              //   backgroundColor: GREEN_BG,
+              // borderRadius: "10%", // Makes each cell a circle
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              overflow: "hidden",
+              position: "relative",
+            }}
+          >
+            <img
+              src={getPieceImage(creatorChoices[creatorIndex])}
+              alt={creatorChoices[creatorIndex].type}
+              draggable={false}
+              onClick={() => {
+                setCreatorIndex((prev) => (prev + 1) % creatorChoices.length);
+              }}
+              style={{
+                userSelect: "none",
+                width: "100%",
+                height: "100%",
+                zIndex: 1,
+                // If it's a fox, you might want to rotate it based on piece.facing
+                transform:
+                  creatorChoices[creatorIndex].type === "fox"
+                    ? getRotation(creatorChoices[creatorIndex].facing)
+                    : "none",
+                position: "absolute",
+                transition: "all 0.2s ease-in-out",
+              }}
+            />
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const LevelSelector = () => {
+    return (
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "10px",
+          padding: "20px",
+          backgroundColor: "rgba(255, 255, 255, 0.1)",
+          borderRadius: "12px",
+          maxHeight: "400px",
+          overflowY: "auto",
+          width: "150px",
+        }}
+      >
+        <h3 style={{ color: "white", margin: "0 0 10px 0", fontSize: "16px" }}>
+          Levels
+        </h3>
+        {levels.map((lvl, i) => (
+          <button
+            key={i}
+            onClick={() => {
+              SetBoardCode(lvl.code);
+              setLevelSelectorMode(false);
+            }}
+            style={{
+              padding: "8px",
+              borderRadius: "6px",
+              border: "none",
+              backgroundColor:
+                boardCode === lvl.code ? "#fff" : "rgba(255, 255, 255, 0.2)",
+              color: boardCode === lvl.code ? GREEN_BG : "white",
+              cursor: "pointer",
+              fontWeight: "bold",
+              transition: "all 0.2s",
+            }}
+          >
+            {lvl.name}
+          </button>
+        ))}
       </div>
     );
   };
   return (
-    <>
-      {Board(board)}
-      <div style={{ transform: "scale(0.5)", transformOrigin: "top center" }}>
-        {Board(board, false)}
+    <div
+      style={{
+        position: "relative", // Container for absolute children
+        width: "fit-content",
+        margin: "0 auto",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+      }}
+    >
+      {/* The Scaled Board (Always rendered, or dimmed when menu is open) */}
+      <div
+        style={{
+          // Responsive sizing
+          width: "90vw", // Fills 90% of the screen width on small devices
+          maxWidth: "800px", // Never gets larger than 400px
+          aspectRatio: "1 / 1", // Keeps the board a perfect square
+
+          // Centering & Layout
+          margin: "0 auto",
+          position: "relative",
+
+          // Effects
+          filter: levelSelectorMode ? "blur(4px) brightness(0.7)" : "none",
+          transition: "all 0.3s ease",
+          pointerEvents: levelSelectorMode ? "none" : "auto",
+        }}
+      >
+        {Board(board, true, creatorMode)}
       </div>
-    </>
+
+      {/* Level Selector Overlay */}
+      {levelSelectorMode && (
+        <div
+          style={{
+            position: "absolute",
+            zIndex: 100,
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)", // Perfect center over the board
+            backgroundColor: "rgba(0, 0, 0, 0.85)", // Darker background for contrast
+            padding: "20px",
+            borderRadius: "16px",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.5)",
+            border: "1px solid rgba(255,255,255,0.2)",
+            maxHeight: "80%",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              display: "flex",
+              justifyContent: "space-between",
+              marginBottom: "10px",
+            }}
+          >
+            <h3 style={{ color: "white", margin: 0 }}>Select Level</h3>
+            {/* Optional Close Button */}
+            <button
+              onClick={() => setLevelSelectorMode(false)}
+              style={{
+                background: "none",
+                border: "none",
+                color: "white",
+                cursor: "pointer",
+              }}
+            >
+              ✕
+            </button>
+          </div>
+
+          <LevelSelector />
+        </div>
+      )}
+    </div>
   );
 }
