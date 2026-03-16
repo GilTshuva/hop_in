@@ -10,8 +10,8 @@ import mushroom from "../assets/mushroom.png";
 import starter from "../levels/starter.json";
 import junior from "../levels/junior.json";
 import expert from "../levels/expert.json";
-
-const levels = [...starter, ...junior, ...expert];
+import master from "../levels/master.json";
+import wizard from "../levels/wizard.json";
 
 // --- Types ---
 type PieceType = "rabbit" | "fox" | "mushroom";
@@ -65,7 +65,6 @@ export default function JumpInGame() {
       if (event.key === "c") {
         setCreatorMode((prev) => !prev);
       } else if (event.key === "r") {
-        console.log(creatorIndex);
         setCreatorIndex((prev) => {
           prev += 1;
           prev %= creatorChoices.length;
@@ -227,6 +226,7 @@ export default function JumpInGame() {
   useEffect(() => {
     if (!boardCode) return;
     const newBoard = decode_board(boardCode);
+    console.log(newBoard);
     if (newBoard) {
       setBoard(newBoard);
       setMoveCount(() => 0);
@@ -764,31 +764,55 @@ export default function JumpInGame() {
           width: "150px",
         }}
       >
-        <h3 style={{ color: "white", margin: "0 0 10px 0", fontSize: "16px" }}>
+        {/* <h3 style={{ color: "white", margin: "0 0 10px 0", fontSize: "16px" }}>
           Levels
-        </h3>
-        {levels.map((lvl, i) => (
-          <button
-            key={i}
-            onClick={() => {
-              SetBoardCode(lvl.code);
-              setLevelSelectorMode(false);
-            }}
-            style={{
-              padding: "8px",
-              borderRadius: "6px",
-              border: "none",
-              backgroundColor:
-                boardCode === lvl.code ? "#fff" : "rgba(255, 255, 255, 0.2)",
-              color: boardCode === lvl.code ? GREEN_BG : "white",
-              cursor: "pointer",
-              fontWeight: "bold",
-              transition: "all 0.2s",
-            }}
-          >
-            {lvl.name}
-          </button>
-        ))}
+        </h3> */}
+        {[
+          { name: "Starter", data: starter },
+          { name: "Junior", data: junior },
+          { name: "Expert", data: expert },
+          { name: "Master", data: master },
+          { name: "Wizard", data: wizard },
+        ].map((category) => {
+          return (
+            <>
+              <h3
+                style={{
+                  color: "white",
+                  margin: "0 0 10px 0",
+                  fontSize: "16px",
+                }}
+              >
+                {category.name}
+              </h3>
+              {category.data &&
+                category.data.map((lvl: {"code": string, "moves": number}, i) => (
+                  <button
+                    key={`${category.name} ${i}`}
+                    onClick={() => {
+                      SetBoardCode(lvl.code);
+                      setLevelSelectorMode(false);
+                    }}
+                    style={{
+                      padding: "8px",
+                      borderRadius: "6px",
+                      border: "none",
+                      backgroundColor:
+                        boardCode === lvl.code
+                          ? "#fff"
+                          : "rgba(255, 255, 255, 0.2)",
+                      color: boardCode === lvl.code ? GREEN_BG : "white",
+                      cursor: "pointer",
+                      fontWeight: "bold",
+                      transition: "all 0.2s",
+                    }}
+                  >
+                    {`${category.name} ${i}`}
+                  </button>
+                ))}
+            </>
+          );
+        })}
       </div>
     );
   };
