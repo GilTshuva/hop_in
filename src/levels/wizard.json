@@ -1,5 +1,14 @@
 [
-  {"code": "....w.r.b...m...d......gm", "moves": 39},
-  {"code": ".mgw.m.b....m..l.........", "moves": 23},
-  {"code": "w....b.r.....d...g..m.m.m", "moves": 27}
+  { "code": "....w.r.b...m...d......gm", "moves": 39 },
+  { "code": ".mgw.m.b....m..l.........", "moves": 23 },
+  { "code": "w....b.r.....d...g..m.m.m", "moves": 27 },
+  { "code": "....m.r.w.....b.dm..m..g.", "moves": 34 },
+  { "code": ".g.b.mu..wm.....l...m....", "moves": 33 },
+  { "code": ".wm..m..d.......m....g.b.", "moves": 22 },
+  { "code": ".......m....w..b.gd.m...m", "moves": 32 },
+  { "code": "....m.r.ug..m..w...m.b...", "moves": 43 },
+  { "code": "w.....b.l...m...g..r.m..m", "moves": 56 },
+  { "code": ".g..m...u.b.w.m...l.m....", "moves": 67 },
+  { "code": "...m..r.w...m.bg.l......m", "moves": 65 },
+  { "code": "...m..r.w...m.bm.......g.", "moves": 87 }
 ]

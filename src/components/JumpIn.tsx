@@ -38,8 +38,16 @@ const BOARD_SIZE = 5;
 const GREEN_BG = "rgb(0, 157, 71)";
 
 export default function JumpInGame() {
-  const [boardCode, SetBoardCode] = useState<undefined | string>();
-  const [maxMoves, SetMaxMoves] = useState<number>(0);
+  const [boardCode, setBoardCode] = useState<undefined | string>();
+  const [maxMoves, setMaxMoves] = useState<number>(0);
+  const [completedLevels, setCompletedLevels] = useState<string[]>(() => {
+    const saved = localStorage.getItem("jump_in_progress");
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [perfectLevels, setPerfectLevels] = useState<string[]>(() => {
+    const saved = localStorage.getItem("jump_in_perfect_progress");
+    return saved ? JSON.parse(saved) : [];
+  });
   const [moveCount, setMoveCount] = useState(0);
   const [creatorMode, setCreatorMode] = useState<boolean>(false);
   const [levelSelectorMode, setLevelSelectorMode] = useState<boolean>(false);
@@ -240,6 +248,41 @@ export default function JumpInGame() {
 
   useEffect(() => {
     boardCodeRef.current = encode_board(board);
+    const rabbits: Cell[] = [];
+    board.forEach((row) =>
+      row.forEach((cell) => {
+        if (cell.piece?.type === "rabbit") rabbits.push(cell);
+      }),
+    );
+
+    // A rabbit is safe if its current cell is a hole
+    const allRabbitsInHoles =
+      rabbits.length > 0 && rabbits.every((cell) => cell.isHole);
+
+    let message = "Puzzle Solved!";
+    if (allRabbitsInHoles && !!boardCode) {
+      if (!completedLevels.includes(boardCode)) {
+        const newProgress = [...completedLevels, boardCode];
+        setCompletedLevels(newProgress);
+        localStorage.setItem("jump_in_progress", JSON.stringify(newProgress));
+      }
+      if (moveCount === maxMoves) {
+        message = "Puzzle Solved Perfectly!!!";
+        if (!perfectLevels.includes(boardCode)) {
+          const newProgress = [...perfectLevels, boardCode];
+          setPerfectLevels(newProgress);
+          localStorage.setItem(
+            "jump_in_perfect_progress",
+            JSON.stringify(newProgress),
+          );
+        }
+      }
+      // Optional: delay this so the user sees the rabbit land
+      setTimeout(() => {
+        alert(message);
+        setLevelSelectorMode(true);
+      }, 500);
+    }
   }, [board]);
 
   useEffect(() => {
@@ -511,7 +554,7 @@ export default function JumpInGame() {
               fontSize: "14px",
               pointerEvents: "none",
               display: "flex",
-              gap: "20px"
+              gap: "20px",
             }}
           >
             <p>Max Moves: {maxMoves}</p>
@@ -816,8 +859,8 @@ export default function JumpInGame() {
                     <button
                       key={`${category.name} ${i}`}
                       onClick={() => {
-                        SetBoardCode(lvl.code);
-                        SetMaxMoves(lvl.moves);
+                        setBoardCode(lvl.code);
+                        setMaxMoves(lvl.moves);
                         setLevelSelectorMode(false);
                       }}
                       style={{
@@ -834,7 +877,20 @@ export default function JumpInGame() {
                         transition: "all 0.2s",
                       }}
                     >
-                      {`${category.name} ${i}`}
+                      {`${category.name} ${i}`}{" "}
+                      {
+                        <span
+                          style={{
+                            color: completedLevels.includes(lvl.code)
+                              ? perfectLevels.includes(lvl.code)
+                                ? "#5ac3d1"
+                                : "#4CAF50"
+                              : "#363836",
+                          }}
+                        >
+                          ✓
+                        </span>
+                      }
                     </button>
                   ),
                 )}
