@@ -557,7 +557,7 @@ export default function JumpInGame() {
               gap: "20px",
             }}
           >
-            <p>Max Moves: {maxMoves}</p>
+            <p>Min Moves: {maxMoves}</p>
             <p>Moves: {moveCount}</p>
           </div>
         )}
