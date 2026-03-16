@@ -255,6 +255,10 @@ export default function JumpInGame() {
       }),
     );
 
+    if (creatorMode) {
+      return
+    }
+
     // A rabbit is safe if its current cell is a hole
     const allRabbitsInHoles =
       rabbits.length > 0 && rabbits.every((cell) => cell.isHole);
