@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import hole from "../assets/hole.png";
 import empty_tile from "../assets/empty_tile.png";
 import fox_back from "../assets/fox_back.png";
@@ -39,6 +39,7 @@ const GREEN_BG = "rgb(0, 157, 71)";
 
 export default function JumpInGame() {
   const [boardCode, SetBoardCode] = useState<undefined | string>();
+  const [maxMoves, SetMaxMoves] = useState<number>(0);
   const [moveCount, setMoveCount] = useState(0);
   const [creatorMode, setCreatorMode] = useState<boolean>(false);
   const [levelSelectorMode, setLevelSelectorMode] = useState<boolean>(false);
@@ -59,17 +60,31 @@ export default function JumpInGame() {
     { type: "fox", front: true, facing: "right" },
   ];
 
+  const creatorModeRef = useRef<boolean>(false);
+  const boardCodeRef = useRef<undefined | string>(boardCode);
+
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if (event.ctrlKey) return;
       if (event.key === "c") {
-        setCreatorMode((prev) => !prev);
-      } else if (event.key === "r") {
+        setCreatorMode((prev) => {
+          creatorModeRef.current = !prev;
+          return !prev;
+        });
+      } else if (event.key === "r" && creatorModeRef.current) {
         setCreatorIndex((prev) => {
           prev += 1;
           prev %= creatorChoices.length;
           return prev;
         });
+      } else if (event.key === "s" && creatorModeRef.current) {
+        localStorage.setItem(
+          "custom",
+          JSON.stringify([
+            ...JSON.parse(localStorage.getItem("custom") ?? "[]"),
+            ...[{ code: boardCodeRef.current, moves: 0 }],
+          ]),
+        );
       } else if (event.key == "l") {
         setLevelSelectorMode((prev) => !prev);
       }
@@ -224,9 +239,12 @@ export default function JumpInGame() {
   };
 
   useEffect(() => {
+    boardCodeRef.current = encode_board(board);
+  }, [board]);
+
+  useEffect(() => {
     if (!boardCode) return;
     const newBoard = decode_board(boardCode);
-    console.log(newBoard);
     if (newBoard) {
       setBoard(newBoard);
       setMoveCount(() => 0);
@@ -492,9 +510,12 @@ export default function JumpInGame() {
               fontWeight: "bold",
               fontSize: "14px",
               pointerEvents: "none",
+              display: "flex",
+              gap: "20px"
             }}
           >
-            Moves: {moveCount}
+            <p>Max Moves: {maxMoves}</p>
+            <p>Moves: {moveCount}</p>
           </div>
         )}
 
@@ -773,6 +794,10 @@ export default function JumpInGame() {
           { name: "Expert", data: expert },
           { name: "Master", data: master },
           { name: "Wizard", data: wizard },
+          {
+            name: "Custom",
+            data: JSON.parse(localStorage.getItem("custom") ?? "[]"),
+          },
         ].map((category) => {
           return (
             <>
@@ -786,30 +811,33 @@ export default function JumpInGame() {
                 {category.name}
               </h3>
               {category.data &&
-                category.data.map((lvl: {"code": string, "moves": number}, i) => (
-                  <button
-                    key={`${category.name} ${i}`}
-                    onClick={() => {
-                      SetBoardCode(lvl.code);
-                      setLevelSelectorMode(false);
-                    }}
-                    style={{
-                      padding: "8px",
-                      borderRadius: "6px",
-                      border: "none",
-                      backgroundColor:
-                        boardCode === lvl.code
-                          ? "#fff"
-                          : "rgba(255, 255, 255, 0.2)",
-                      color: boardCode === lvl.code ? GREEN_BG : "white",
-                      cursor: "pointer",
-                      fontWeight: "bold",
-                      transition: "all 0.2s",
-                    }}
-                  >
-                    {`${category.name} ${i}`}
-                  </button>
-                ))}
+                category.data.map(
+                  (lvl: { code: string; moves: number }, i: number) => (
+                    <button
+                      key={`${category.name} ${i}`}
+                      onClick={() => {
+                        SetBoardCode(lvl.code);
+                        SetMaxMoves(lvl.moves);
+                        setLevelSelectorMode(false);
+                      }}
+                      style={{
+                        padding: "8px",
+                        borderRadius: "6px",
+                        border: "none",
+                        backgroundColor:
+                          boardCode === lvl.code
+                            ? "#fff"
+                            : "rgba(255, 255, 255, 0.2)",
+                        color: boardCode === lvl.code ? GREEN_BG : "white",
+                        cursor: "pointer",
+                        fontWeight: "bold",
+                        transition: "all 0.2s",
+                      }}
+                    >
+                      {`${category.name} ${i}`}
+                    </button>
+                  ),
+                )}
             </>
           );
         })}
