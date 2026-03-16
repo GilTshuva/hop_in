@@ -38,6 +38,7 @@ const BOARD_SIZE = 5;
 const GREEN_BG = "rgb(0, 157, 71)";
 
 export default function JumpInGame() {
+  const [history, setHistory] = useState<string[]>([]);
   const [boardCode, setBoardCode] = useState<undefined | string>();
   const [maxMoves, setMaxMoves] = useState<number>(0);
   const [completedLevels, setCompletedLevels] = useState<string[]>(() => {
@@ -256,7 +257,11 @@ export default function JumpInGame() {
     );
 
     if (creatorMode) {
-      return
+      return;
+    }
+
+    if (history[-1] != encode_board(board)) {
+      setHistory((prev) => [...prev, encode_board(board)]);
     }
 
     // A rabbit is safe if its current cell is a hole
@@ -326,6 +331,7 @@ export default function JumpInGame() {
         newBoard[r][c].piece = piece;
         newBoard[startR][startC].piece = null;
         setBoard(newBoard);
+
         setDragStart({ r, c });
         setMoveCount((prev) => prev + 1);
       }
@@ -548,21 +554,62 @@ export default function JumpInGame() {
           <div
             style={{
               position: "absolute",
-              top: "-5px",
+              top: "-15px", // Slightly higher to account for button height
               left: "-5px",
+              right: "-5px", // Added right to allow stretching across the board width
               color: "white",
               padding: "5px 15px",
-              borderRadius: "20px",
               fontFamily: "sans-serif",
               fontWeight: "bold",
               fontSize: "14px",
-              pointerEvents: "none",
               display: "flex",
-              gap: "20px",
+              justifyContent: "space-between", // Pushes text to left and button to right
+              alignItems: "center",
+              pointerEvents: "none", // Keeps clicks passing through to the board...
             }}
           >
-            <p>Min Moves: {maxMoves}</p>
-            <p>Moves: {moveCount}</p>
+            <div style={{ display: "flex", gap: "20px" }}>
+              <p>Min Moves: {maxMoves}</p>
+              <p>Moves: {moveCount}</p>
+            </div>
+
+            <div
+              style={{
+                padding: "6px 12px",
+                color: "white",
+                cursor: "pointer",
+                fontSize: "12px",
+                fontWeight: "bold",
+                transition: "all 0.2s",
+                display: "flex",
+                gap: "10px",
+              }}
+            >
+              <p
+                onClick={() => {
+                  if (history.length === 1) return;
+                  console.log(history);
+                  const previousStateCode = history[history.length - 2];
+                  const newHistory = history.slice(0, -2);
+
+                  const decoded = decode_board(previousStateCode);
+                  if (decoded) {
+                    setBoard(decoded);
+                    setHistory(newHistory);
+                    setMoveCount((prev) => Math.max(0, prev - 1));
+                  }
+                }}
+                style={{ pointerEvents: "auto" }}
+              >
+                ↩
+              </p>
+              <p
+                onClick={() => setLevelSelectorMode(true)}
+                style={{ pointerEvents: "auto" }}
+              >
+                ☰
+              </p>
+            </div>
           </div>
         )}
 
@@ -756,6 +803,7 @@ export default function JumpInGame() {
               console.log("resetting board");
               if (boardCode) {
                 const newBoard = decode_board(boardCode);
+                setHistory([]);
                 if (newBoard) setBoard(newBoard);
                 if (newBoard) setMoveCount(() => 0);
               }
@@ -864,6 +912,7 @@ export default function JumpInGame() {
                       key={`${category.name} ${i}`}
                       onClick={() => {
                         setBoardCode(lvl.code);
+                        setHistory([]);
                         setMaxMoves(lvl.moves);
                         setLevelSelectorMode(false);
                       }}
